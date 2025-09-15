@@ -6,6 +6,8 @@ async function getBlob() {
   // try direct properties first
   let list = mod.list;
   let put = mod.put;
+  let head = mod.head;
+  let del = mod.del;
 
   // inspect default export if present
   const candidates = [];
@@ -18,25 +20,28 @@ async function getBlob() {
       const lower = key.toLowerCase();
       if (!list && lower.includes('list') && typeof val === 'function') list = val;
       if (!put && lower.includes('put') && typeof val === 'function') put = val;
+      if (!head && lower.includes('head') && typeof val === 'function') head = val;
+      if (!del && lower.includes('del') && typeof val === 'function') del = val;
     }
   }
 
-  // try to find functions named list/put anywhere (fallback)
-  if ((!list || !put) && typeof mod === 'object') {
+  // try to find functions named list/put/head/del anywhere (fallback)
+  if (typeof mod === 'object') {
     for (const key of Object.keys(mod)) {
       const val = mod[key];
-      if (!list && typeof val === 'function' && key.toLowerCase().includes('list')) list = val;
-      if (!put && typeof val === 'function' && key.toLowerCase().includes('put')) put = val;
+      const lower = key.toLowerCase();
+      if (!list && typeof val === 'function' && lower.includes('list')) list = val;
+      if (!put && typeof val === 'function' && lower.includes('put')) put = val;
+      if (!head && typeof val === 'function' && lower.includes('head')) head = val;
+      if (!del && typeof val === 'function' && lower.includes('del')) del = val;
     }
   }
 
-  blobModule = { list, put, raw: mod };
-  if (!list || !put) {
-    const modKeys = Object.keys(mod || {});
-    const defaultKeys = mod && mod.default ? Object.keys(mod.default) : [];
-    console.error('vercel-blob exports missing list/put. available keys:', { modKeys, defaultKeys });
-    throw new Error(`blob.list or blob.put not found. modKeys=${modKeys.join(',')}; defaultKeys=${defaultKeys.join(',')}`);
-  }
+  const modKeys = Object.keys(mod || {});
+  const defaultKeys = mod && mod.default ? Object.keys(mod.default) : [];
+  if (!list) console.error('vercel-blob has no list; available keys:', { modKeys, defaultKeys });
+
+  blobModule = { list, put, head, del, raw: mod };
   return blobModule;
 }
 
@@ -57,18 +62,40 @@ function setCors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
+import fs from 'fs/promises';
+import path from 'path';
+
 async function loadBooks() {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error('BLOB_READ_WRITE_TOKEN not set');
-  }
+  // local file fallback for development
   try {
-  const { list } = await getBlob();
-  if (typeof list !== 'function') throw new Error('blob.list is not available');
-  const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
-    const blob = blobs.find(b => b.pathname === BLOB_FILE);
-    if (!blob) return [];
+    const local = await fs.readFile(path.join(process.cwd(), BLOB_FILE), 'utf8').catch(() => null);
+    if (local) return JSON.parse(local);
+  } catch (e) {
+    // continue to remote attempt
+  }
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    // no token and no local file -> empty list
+    return [];
+  }
+
+  try {
+    const { list, head } = await getBlob();
+    if (typeof list === 'function') {
+      const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
+      const blob = blobs.find(b => b.pathname === BLOB_FILE);
+      if (!blob) return [];
+      const fetch = await getFetch();
+      const res = await fetch(blob.url);
+      return await res.json();
+    }
+
+    // fallback: try direct public URL
+    const base = process.env.VERCEL_BLOB_API_URL || 'https://blob.vercel-storage.com';
+    const url = `${base}/${BLOB_FILE}`;
     const fetch = await getFetch();
-    const res = await fetch(blob.url);
+    const res = await fetch(url);
+    if (!res.ok) return [];
     return await res.json();
   } catch (err) {
     console.error('loadBooks error:', err);
@@ -77,17 +104,24 @@ async function loadBooks() {
 }
 
 async function saveBooks(books) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error('BLOB_READ_WRITE_TOKEN not set');
-  }
+  // write local file first
   try {
-      const { put } = await getBlob();
-      if (typeof put !== 'function') throw new Error('blob.put is not available');
+    await fs.writeFile(path.join(process.cwd(), BLOB_FILE), JSON.stringify(books, null, 2), 'utf8');
+  } catch (e) {
+    console.error('local write failed', e);
+  }
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return;
+
+  try {
+    const { put } = await getBlob();
+    if (typeof put === 'function') {
       await put(BLOB_FILE, JSON.stringify(books, null, 2), {
         token: process.env.BLOB_READ_WRITE_TOKEN,
         contentType: "application/json",
         access: "public"
       });
+    }
   } catch (err) {
     console.error('saveBooks error:', err);
     throw err;
