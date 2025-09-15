@@ -1,5 +1,12 @@
 import express from "express";
-import fetch from "node-fetch";
+let fetch;
+
+async function getFetch() {
+  if (!fetch) {
+    fetch = (await import('node-fetch')).default;
+  }
+  return fetch;
+}
 import { put, list, get } from "@vercel/blob";
 
 const app = express();
@@ -15,7 +22,8 @@ async function loadBooks() {
     const blob = blobs.find(b => b.pathname === BLOB_FILE);
     if (!blob) return [];
 
-    const res = await fetch(blob.url);
+  const fetch = await getFetch();
+  const res = await fetch(blob.url);
     return await res.json();
   } catch {
     return [];
@@ -33,7 +41,8 @@ async function saveBooks(books) {
 // --- Fetch book info from APIs ---
 async function fetchFromOpenLibrary(isbn) {
   try {
-    const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+  const fetch = await getFetch();
+  const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
     if (!res.ok) return null;
     const data = await res.json();
     return {
