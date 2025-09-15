@@ -18,6 +18,11 @@
   // --- Render books by status ---
   async function fetchBooks(status) {
     const res = await fetch(`${backendURL}/books/${status}`);
+    if (!res.ok) {
+      const txt = await res.text().catch(()=>'<no body>');
+      console.error('Fetch books failed', res.status, txt);
+      throw new Error(`Fetch books failed: ${res.status}`);
+    }
     return await res.json();
   }
 
@@ -65,11 +70,16 @@
     const author = document.getElementById("author").value.trim();
     const status = document.getElementById("status").value;
 
-    await fetch(`${backendURL}/book`, {
+    const res = await fetch(`${backendURL}/book`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isbn, title, author, status })
     });
+    if (!res.ok) {
+      const txt = await res.text().catch(()=>'<no body>');
+      console.error('Add book failed', res.status, txt);
+      throw new Error('Add book failed');
+    }
 
     await renderAll();
 
@@ -81,17 +91,27 @@
   // --- Move book between lists ---
   async function moveBook(id, currentStatus) {
     const newStatus = currentStatus === "wishlist" ? "currently" : "wishlist";
-    await fetch(`${backendURL}/book/${id}`, {
+    const res2 = await fetch(`${backendURL}/book/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus })
     });
+    if (!res2.ok) {
+      const txt = await res2.text().catch(()=>'<no body>');
+      console.error('Move book failed', res2.status, txt);
+      throw new Error('Move book failed');
+    }
     await renderAll();
   }
 
   // --- Delete book ---
   async function deleteBook(id) {
-    await fetch(`${backendURL}/book/${id}`, { method: "DELETE" });
+    const res3 = await fetch(`${backendURL}/book/${id}`, { method: "DELETE" });
+    if (!res3.ok) {
+      const txt = await res3.text().catch(()=>'<no body>');
+      console.error('Delete book failed', res3.status, txt);
+      throw new Error('Delete book failed');
+    }
     await renderAll();
   }
 
