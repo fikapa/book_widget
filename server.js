@@ -1,3 +1,6 @@
+app.get('/book', (req, res) => {
+  res.send('Book endpoint is working!');
+});
 import express from "express";
 let fetch;
 
