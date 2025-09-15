@@ -25,8 +25,14 @@ async function loadBooks() {
 
 export default async function handler(req, res) {
   setCors(res);
+  console.log('GET /api/books handler invoked', { method: req.method, blobTokenSet: !!process.env.BLOB_READ_WRITE_TOKEN });
   try {
     if (req.method === 'OPTIONS') return res.status(200).end();
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      const msg = 'BLOB_READ_WRITE_TOKEN not set in environment';
+      console.error(msg);
+      return res.status(500).json({ error: msg });
+    }
     const { status } = req.query;
     const books = await loadBooks();
     res.json(books.filter(b => b.status === status));

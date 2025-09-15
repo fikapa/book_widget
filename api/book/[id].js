@@ -35,6 +35,7 @@ async function saveBooks(books) {
 
 export default async function handler(req, res) {
   setCors(res);
+  console.log('/api/book/[id] invoked', { method: req.method, id: req.query?.id, blobTokenSet: !!process.env.BLOB_READ_WRITE_TOKEN });
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     const msg = 'BLOB_READ_WRITE_TOKEN not set in environment';
     console.error(msg);

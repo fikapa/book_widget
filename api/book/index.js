@@ -60,6 +60,7 @@ async function fetchFromGoogleBooks(isbn) {
 // Add book endpoint
 export default async function handler(req, res) {
   setCors(res);
+    console.log('POST /api/book invoked', { method: req.method, blobTokenSet: !!process.env.BLOB_READ_WRITE_TOKEN });
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     const msg = 'BLOB_READ_WRITE_TOKEN not set in environment';
     console.error(msg);
