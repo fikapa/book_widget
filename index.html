@@ -1,0 +1,100 @@
+<div id="book-widget"></div>
+
+<!-- Add Book Form -->
+<div style="margin-top:20px;">
+  <input id="isbn" placeholder="ISBN" />
+  <input id="title" placeholder="Title" />
+  <input id="author" placeholder="Author" />
+  <select id="status">
+    <option value="wishlist">Wishlist</option>
+    <option value="currently">Currently Reading</option>
+  </select>
+  <button onclick="addBook()">Add Book</button>
+</div>
+
+<script>
+  const backendURL = "https://your-vercel-app.vercel.app"; // <-- replace with your deployed backend
+
+  // --- Render books by status ---
+  async function fetchBooks(status) {
+    const res = await fetch(`${backendURL}/books/${status}`);
+    return await res.json();
+  }
+
+  async function renderList(status, containerId, title) {
+    const books = await fetchBooks(status);
+
+    const container = document.createElement("div");
+    container.innerHTML = `<h2>${title}</h2>`;
+    container.style.marginBottom = "20px";
+
+    for (let book of books) {
+      const item = document.createElement("div");
+      item.style.display = "inline-block";
+      item.style.margin = "10px";
+      item.style.textAlign = "center";
+      item.innerHTML = `
+        <img src="${book.cover}" alt="${book.title}" 
+             style="height:150px; display:block; margin-bottom:5px;">
+        <span>${book.title}</span><br>
+        <button onclick="moveBook(${book.id}, '${status}')">
+          Move to ${status === 'wishlist' ? 'Currently Reading' : 'Wishlist'}
+        </button>
+        <button onclick="deleteBook(${book.id})">❌</button>
+      `;
+      container.appendChild(item);
+    }
+
+    document.getElementById(containerId).innerHTML = "";
+    document.getElementById(containerId).appendChild(container);
+  }
+
+  async function renderAll() {
+    document.getElementById("book-widget").innerHTML = `
+      <div id="wishlist"></div>
+      <div id="currently"></div>
+    `;
+    await renderList("wishlist", "wishlist", "Wishlist");
+    await renderList("currently", "currently", "Currently Reading");
+  }
+
+  // --- Add new book ---
+  async function addBook() {
+    const isbn = document.getElementById("isbn").value.trim();
+    const title = document.getElementById("title").value.trim();
+    const author = document.getElementById("author").value.trim();
+    const status = document.getElementById("status").value;
+
+    await fetch(`${backendURL}/book`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isbn, title, author, status })
+    });
+
+    await renderAll();
+
+    document.getElementById("isbn").value = "";
+    document.getElementById("title").value = "";
+    document.getElementById("author").value = "";
+  }
+
+  // --- Move book between lists ---
+  async function moveBook(id, currentStatus) {
+    const newStatus = currentStatus === "wishlist" ? "currently" : "wishlist";
+    await fetch(`${backendURL}/book/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus })
+    });
+    await renderAll();
+  }
+
+  // --- Delete book ---
+  async function deleteBook(id) {
+    await fetch(`${backendURL}/book/${id}`, { method: "DELETE" });
+    await renderAll();
+  }
+
+  // --- Initial render ---
+  renderAll();
+</script>
