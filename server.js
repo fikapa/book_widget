@@ -7,7 +7,7 @@ async function getFetch() {
   }
   return fetch;
 }
-import { put, list, get } from "@vercel/blob";
+import { put, list } from "@vercel/blob";
 
 
 const app = express();
