@@ -9,9 +9,20 @@ async function getFetch() {
 }
 import { put, list, get } from "@vercel/blob";
 
+
 const app = express();
 app.use(express.json());
 const PORT = 3000;
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const BLOB_FILE = "books.json"; // we'll keep all books here
 
