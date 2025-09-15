@@ -1,5 +1,12 @@
 import { list } from "@vercel/blob";
-import fetch from "node-fetch";
+
+let fetchFn;
+async function getFetch() {
+  if (!fetchFn) {
+    fetchFn = (await import('node-fetch')).default;
+  }
+  return fetchFn;
+}
 
 const BLOB_FILE = "books.json";
 
@@ -15,8 +22,9 @@ async function loadBooks() {
     const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
     const blob = blobs.find(b => b.pathname === BLOB_FILE);
     if (!blob) return [];
-    const res = await fetch(blob.url);
-    return await res.json();
+  const fetch = await getFetch();
+  const res = await fetch(blob.url);
+  return await res.json();
   } catch {
     return [];
   }

@@ -1,5 +1,12 @@
 import { put, list } from "@vercel/blob";
-import fetch from "node-fetch";
+
+let fetchFn;
+async function getFetch() {
+  if (!fetchFn) {
+    fetchFn = (await import('node-fetch')).default;
+  }
+  return fetchFn;
+}
 
 const BLOB_FILE = "books.json";
 
@@ -16,8 +23,9 @@ async function loadBooks() {
     const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
     const blob = blobs.find(b => b.pathname === BLOB_FILE);
     if (!blob) return [];
-    const res = await fetch(blob.url);
-    return await res.json();
+  const fetch = await getFetch();
+  const res = await fetch(blob.url);
+  return await res.json();
   } catch {
     return [];
   }
@@ -35,7 +43,8 @@ async function saveBooks(books) {
 // Helper: fetch cover
 async function fetchFromOpenLibrary(isbn) {
   try {
-    const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+  const fetch = await getFetch();
+  const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
     if (!res.ok) return null;
     const data = await res.json();
     return { title: data.title, cover: `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg` };
@@ -44,7 +53,8 @@ async function fetchFromOpenLibrary(isbn) {
 
 async function fetchFromGoogleBooks(isbn) {
   try {
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+  const fetch = await getFetch();
+  const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
     const data = await res.json();
     if (!data.items?.length) return null;
     const book = data.items[0].volumeInfo;
