@@ -12,7 +12,6 @@ function setCors(res) {
 
 async function loadBooks() {
   try {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) throw new Error('BLOB_READ_WRITE_TOKEN not set');
     const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
     const blob = blobs.find(b => b.pathname === BLOB_FILE);
     if (!blob) return [];
@@ -25,19 +24,8 @@ async function loadBooks() {
 
 export default async function handler(req, res) {
   setCors(res);
-  console.log('GET /api/books handler invoked', { method: req.method, blobTokenSet: !!process.env.BLOB_READ_WRITE_TOKEN });
-  try {
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      const msg = 'BLOB_READ_WRITE_TOKEN not set in environment';
-      console.error(msg);
-      return res.status(500).json({ error: msg });
-    }
-    const { status } = req.query;
-    const books = await loadBooks();
-    res.json(books.filter(b => b.status === status));
-  } catch (err) {
-    console.error('Get books error:', err);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  const { status } = req.query;
+  const books = await loadBooks();
+  res.json(books.filter(b => b.status === status));
 }

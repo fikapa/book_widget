@@ -21,49 +21,33 @@ async function loadBooks() {
 }
 
 async function saveBooks(books) {
-  try {
-    await put(BLOB_FILE, JSON.stringify(books, null, 2), {
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      contentType: "application/json",
-      access: "public"
-    });
-  } catch (err) {
-    console.error('saveBooks error:', err);
-    throw err;
-  }
+  await put(BLOB_FILE, JSON.stringify(books, null, 2), {
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+    contentType: "application/json",
+    access: "public"
+  });
 }
 
 export default async function handler(req, res) {
   setCors(res);
-  console.log('/api/book/[id] invoked', { method: req.method, id: req.query?.id, blobTokenSet: !!process.env.BLOB_READ_WRITE_TOKEN });
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    const msg = 'BLOB_READ_WRITE_TOKEN not set in environment';
-    console.error(msg);
-    return res.status(500).json({ error: msg });
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  const { id } = req.query;
+  let books = await loadBooks();
+  const bookIndex = books.findIndex(b => b.id == id);
+  if (bookIndex === -1) return res.status(404).json({ error: "Book not found" });
+
+  if (req.method === "PUT") {
+    const { status } = req.body;
+    books[bookIndex].status = status;
+    await saveBooks(books);
+    return res.json(books[bookIndex]);
   }
-  try {
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    const { id } = req.query;
-    let books = await loadBooks();
-    const bookIndex = books.findIndex(b => b.id == id);
-    if (bookIndex === -1) return res.status(404).json({ error: "Book not found" });
 
-    if (req.method === "PUT") {
-      const { status } = req.body;
-      books[bookIndex].status = status;
-      await saveBooks(books);
-      return res.json(books[bookIndex]);
-    }
-
-    if (req.method === "DELETE") {
-      books.splice(bookIndex, 1);
-      await saveBooks(books);
-      return res.json({ success: true });
-    }
-
-    return res.status(405).end();
-  } catch (err) {
-    console.error('Book id handler error:', err);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+  if (req.method === "DELETE") {
+    books.splice(bookIndex, 1);
+    await saveBooks(books);
+    return res.json({ success: true });
   }
+
+  return res.status(405).end();
 }

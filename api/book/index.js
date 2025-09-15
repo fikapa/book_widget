@@ -25,16 +25,11 @@ async function loadBooks() {
 
 // Helper: save books
 async function saveBooks(books) {
-  try {
-    await put(BLOB_FILE, JSON.stringify(books, null, 2), {
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      contentType: "application/json",
-      access: "public"
-    });
-  } catch (err) {
-    console.error('saveBooks error:', err);
-    throw err;
-  }
+  await put(BLOB_FILE, JSON.stringify(books, null, 2), {
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+    contentType: "application/json",
+    access: "public"
+  });
 }
 
 // Helper: fetch cover
@@ -60,31 +55,20 @@ async function fetchFromGoogleBooks(isbn) {
 // Add book endpoint
 export default async function handler(req, res) {
   setCors(res);
-    console.log('POST /api/book invoked', { method: req.method, blobTokenSet: !!process.env.BLOB_READ_WRITE_TOKEN });
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    const msg = 'BLOB_READ_WRITE_TOKEN not set in environment';
-    console.error(msg);
-    return res.status(500).json({ error: msg });
-  }
-  try {
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== "POST") return res.status(405).end();
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).end();
 
-    const { isbn, title, author, status } = req.body;
-    let book = null;
+  const { isbn, title, author, status } = req.body;
+  let book = null;
 
-    if (isbn) book = await fetchFromOpenLibrary(isbn) || await fetchFromGoogleBooks(isbn);
-    if (!book && title) book = { title, cover: "https://via.placeholder.com/150x220?text=No+Cover" };
-    if (!book) return res.status(404).json({ error: "Book not found" });
+  if (isbn) book = await fetchFromOpenLibrary(isbn) || await fetchFromGoogleBooks(isbn);
+  if (!book && title) book = { title, cover: "https://via.placeholder.com/150x220?text=No+Cover" };
+  if (!book) return res.status(404).json({ error: "Book not found" });
 
-    const books = await loadBooks();
-    const newBook = { id: Date.now(), title: book.title, cover: book.cover, status: status || "wishlist" };
-    books.push(newBook);
-    await saveBooks(books);
+  const books = await loadBooks();
+  const newBook = { id: Date.now(), title: book.title, cover: book.cover, status: status || "wishlist" };
+  books.push(newBook);
+  await saveBooks(books);
 
-    res.json(newBook);
-  } catch (err) {
-    console.error('Add book error:', err);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
-  }
+  res.json(newBook);
 }
