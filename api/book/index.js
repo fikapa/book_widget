@@ -19,25 +19,37 @@ function setCors(res) {
 
 // Helper: load books
 async function loadBooks() {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error('BLOB_READ_WRITE_TOKEN not set');
+  }
   try {
     const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
     const blob = blobs.find(b => b.pathname === BLOB_FILE);
     if (!blob) return [];
-  const fetch = await getFetch();
-  const res = await fetch(blob.url);
-  return await res.json();
-  } catch {
-    return [];
+    const fetch = await getFetch();
+    const res = await fetch(blob.url);
+    return await res.json();
+  } catch (err) {
+    console.error('loadBooks error:', err);
+    throw err;
   }
 }
 
 // Helper: save books
 async function saveBooks(books) {
-  await put(BLOB_FILE, JSON.stringify(books, null, 2), {
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-    contentType: "application/json",
-    access: "public"
-  });
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error('BLOB_READ_WRITE_TOKEN not set');
+  }
+  try {
+    await put(BLOB_FILE, JSON.stringify(books, null, 2), {
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      contentType: "application/json",
+      access: "public"
+    });
+  } catch (err) {
+    console.error('saveBooks error:', err);
+    throw err;
+  }
 }
 
 // Helper: fetch cover
@@ -80,10 +92,13 @@ export default async function handler(req, res) {
   if (!book && title) book = { title, cover: "https://via.placeholder.com/150x220?text=No+Cover" };
   if (!book) return res.status(404).json({ error: "Book not found" });
 
-  const books = await loadBooks();
-  const newBook = { id: Date.now(), title: book.title, cover: book.cover, status: status || "wishlist" };
-  books.push(newBook);
-  await saveBooks(books);
-
-  res.json(newBook);
+  try {
+    const books = await loadBooks();
+    const newBook = { id: Date.now(), title: book.title, cover: book.cover, status: status || "wishlist" };
+    books.push(newBook);
+    await saveBooks(books);
+    return res.json(newBook);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to save book', details: err.message });
+  }
 }

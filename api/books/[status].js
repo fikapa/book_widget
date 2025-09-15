@@ -18,15 +18,19 @@ function setCors(res) {
 }
 
 async function loadBooks() {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error('BLOB_READ_WRITE_TOKEN not set');
+  }
   try {
     const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
     const blob = blobs.find(b => b.pathname === BLOB_FILE);
     if (!blob) return [];
-  const fetch = await getFetch();
-  const res = await fetch(blob.url);
-  return await res.json();
-  } catch {
-    return [];
+    const fetch = await getFetch();
+    const res = await fetch(blob.url);
+    return await res.json();
+  } catch (err) {
+    console.error('loadBooks error:', err);
+    throw err;
   }
 }
 
@@ -34,6 +38,10 @@ export default async function handler(req, res) {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   const { status } = req.query;
-  const books = await loadBooks();
-  res.json(books.filter(b => b.status === status));
+  try {
+    const books = await loadBooks();
+    return res.json(books.filter(b => b.status === status));
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to load books', details: err.message });
+  }
 }
