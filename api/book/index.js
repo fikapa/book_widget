@@ -1,11 +1,41 @@
 // dynamic loader for @vercel/blob to handle different export shapes in runtime
 let blobModule;
 async function getBlob() {
-  if (!blobModule) {
-    const mod = await import('@vercel/blob');
-    const list = mod.list ?? mod.default?.list;
-    const put = mod.put ?? mod.default?.put;
-    blobModule = { list, put };
+  if (blobModule) return blobModule;
+  const mod = await import('@vercel/blob');
+  // try direct properties first
+  let list = mod.list;
+  let put = mod.put;
+
+  // inspect default export if present
+  const candidates = [];
+  if (mod && typeof mod === 'object') candidates.push({src: 'mod', obj: mod});
+  if (mod && mod.default && typeof mod.default === 'object') candidates.push({src: 'mod.default', obj: mod.default});
+
+  for (const c of candidates) {
+    for (const key of Object.keys(c.obj)) {
+      const val = c.obj[key];
+      const lower = key.toLowerCase();
+      if (!list && lower.includes('list') && typeof val === 'function') list = val;
+      if (!put && lower.includes('put') && typeof val === 'function') put = val;
+    }
+  }
+
+  // try to find functions named list/put anywhere (fallback)
+  if ((!list || !put) && typeof mod === 'object') {
+    for (const key of Object.keys(mod)) {
+      const val = mod[key];
+      if (!list && typeof val === 'function' && key.toLowerCase().includes('list')) list = val;
+      if (!put && typeof val === 'function' && key.toLowerCase().includes('put')) put = val;
+    }
+  }
+
+  blobModule = { list, put, raw: mod };
+  if (!list || !put) {
+    const modKeys = Object.keys(mod || {});
+    const defaultKeys = mod && mod.default ? Object.keys(mod.default) : [];
+    console.error('vercel-blob exports missing list/put. available keys:', { modKeys, defaultKeys });
+    throw new Error(`blob.list or blob.put not found. modKeys=${modKeys.join(',')}; defaultKeys=${defaultKeys.join(',')}`);
   }
   return blobModule;
 }
