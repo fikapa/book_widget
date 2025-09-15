@@ -58,7 +58,12 @@ async function fetchFromGoogleBooks(isbn) {
     const data = await res.json();
     if (!data.items?.length) return null;
     const book = data.items[0].volumeInfo;
-    return { title: book.title, cover: book.imageLinks?.thumbnail || null };
+    let cover = book.imageLinks?.thumbnail || null;
+    if (cover && cover.startsWith('http://')) {
+      // use https to avoid mixed-content blocking on HTTPS pages
+      cover = cover.replace(/^http:\/\//i, 'https://');
+    }
+    return { title: book.title, cover };
   } catch { return null; }
 }
 

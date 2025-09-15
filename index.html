@@ -41,9 +41,11 @@
       item.style.display = "inline-block";
       item.style.margin = "10px";
       item.style.textAlign = "center";
+      const placeholder = 'https://via.placeholder.com/150x220?text=No+Cover';
+      const imgSrc = book.cover || placeholder;
       item.innerHTML = `
-        <img src="${book.cover}" alt="${book.title}" 
-             style="height:150px; display:block; margin-bottom:5px;">
+        <img src="${imgSrc}" alt="${book.title}" 
+             style="height:150px; display:block; margin-bottom:5px;" onerror="this.onerror=null;this.src='${placeholder}';">
         <span>${book.title}</span><br>
         <button onclick="moveBook(${book.id}, '${status}')">
           Move to ${status === 'wishlist' ? 'Currently Reading' : 'Wishlist'}
