@@ -1,4 +1,5 @@
 <div id="book-widget"></div>
+<div id="status" style="margin-top:10px;color:#b00;"></div>
 
 <!-- Add Book Form -->
 <div style="margin-top:20px;">
@@ -13,7 +14,14 @@
 </div>
 
 <script>
-  const backendURL = "https://book-widget.vercel.app/"; // <-- deployed backend (serverless functions)
+  const backendURL = "https://book-widget.vercel.app/api"; // <-- deployed backend (serverless functions)
+
+  function showStatus(msg, isError = false) {
+    const el = document.getElementById('status');
+    el.style.color = isError ? '#b00' : '#080';
+    el.textContent = msg;
+    setTimeout(() => { el.textContent = ''; }, 4000);
+  }
 
   // --- Render books by status ---
   async function fetchBooks(status) {
@@ -65,11 +73,22 @@
     const author = document.getElementById("author").value.trim();
     const status = document.getElementById("status").value;
 
-    await fetch(`${backendURL}/book`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isbn, title, author, status })
-    });
+    try {
+      const res = await fetch(`${backendURL}/book`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isbn, title, author, status })
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        showStatus(`Add failed: ${res.status} ${body}`, true);
+        return;
+      }
+      showStatus('Book added');
+    } catch (err) {
+      showStatus('Network error: ' + err.message, true);
+      return;
+    }
 
     await renderAll();
 
@@ -81,18 +100,38 @@
   // --- Move book between lists ---
   async function moveBook(id, currentStatus) {
     const newStatus = currentStatus === "wishlist" ? "currently" : "wishlist";
-    await fetch(`${backendURL}/book/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus })
-    });
-    await renderAll();
+    try {
+      const res = await fetch(`${backendURL}/book/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        showStatus(`Update failed: ${res.status} ${body}`, true);
+        return;
+      }
+      showStatus('Book moved');
+      await renderAll();
+    } catch (err) {
+      showStatus('Network error: ' + err.message, true);
+    }
   }
 
   // --- Delete book ---
   async function deleteBook(id) {
-    await fetch(`${backendURL}/book/${id}`, { method: "DELETE" });
-    await renderAll();
+    try {
+      const res = await fetch(`${backendURL}/book/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.text();
+        showStatus(`Delete failed: ${res.status} ${body}`, true);
+        return;
+      }
+      showStatus('Book deleted');
+      await renderAll();
+    } catch (err) {
+      showStatus('Network error: ' + err.message, true);
+    }
   }
 
   // --- Initial render ---
