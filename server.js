@@ -1,14 +1,8 @@
 
 import express from "express";
-let fetch;
-
-async function getFetch() {
-  if (!fetch) {
-    fetch = (await import('node-fetch')).default;
-  }
-  return fetch;
-}
-import { put, list } from "@vercel/blob";
+import fetch from 'node-fetch';
+import * as vercelBlob from "@vercel/blob";
+import fs from 'fs/promises';
 
 const app = express();
 app.use(express.json());
@@ -25,34 +19,45 @@ app.get('/', (req, res) => {
 });
 
 const BLOB_FILE = "books.json"; // we'll keep all books here
+const LOCAL_BLOB_PATH = path.join(process.cwd(), BLOB_FILE);
 
 // --- Helper: load books from blob ---
 async function loadBooks() {
+  // Prefer local file for development
   try {
-    const { blobs } = await list();
-    const blob = blobs.find(b => b.pathname === BLOB_FILE);
-    if (!blob) return [];
-
-  const fetch = await getFetch();
-  const res = await fetch(blob.url);
-    return await res.json();
-  } catch {
-    return [];
+    const data = await fs.readFile(LOCAL_BLOB_PATH, 'utf8').catch(() => null);
+    if (data) return JSON.parse(data);
+  } catch (e) {
+    // fall through to blob attempt
   }
+
+  // Fallback: if Vercel Blob is configured, we could attempt to fetch from blob storage.
+  // For now return an empty array when local file is missing.
+  return [];
 }
 
 // --- Helper: save books to blob ---
 async function saveBooks(books) {
-  await put(BLOB_FILE, JSON.stringify(books, null, 2), {
-    contentType: "application/json",
-    access: "public" // so frontend can fetch if needed
-  });
+  const content = JSON.stringify(books, null, 2);
+  // Write locally first
+  await fs.writeFile(LOCAL_BLOB_PATH, content, 'utf8');
+
+  // Try to upload to Vercel Blob if available (non-fatal)
+  if (vercelBlob && typeof vercelBlob.put === 'function') {
+    try {
+      await vercelBlob.put(BLOB_FILE, content, {
+        contentType: "application/json",
+        access: "public"
+      });
+    } catch (e) {
+      // ignore upload errors in local dev
+    }
+  }
 }
 
 // --- Fetch book info from APIs ---
 async function fetchFromOpenLibrary(isbn) {
   try {
-  const fetch = await getFetch();
   const res = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
     if (!res.ok) return null;
     const data = await res.json();
