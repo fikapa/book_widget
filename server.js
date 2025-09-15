@@ -1,6 +1,4 @@
-app.get('/book', (req, res) => {
-  res.send('Book endpoint is working!');
-});
+
 import express from "express";
 let fetch;
 
@@ -12,12 +10,15 @@ async function getFetch() {
 }
 import { put, list } from "@vercel/blob";
 
-
 const app = express();
 app.use(express.json());
 const PORT = 3000;
 
 import path from 'path';
+
+app.get('/book', (req, res) => {
+  res.send('Book endpoint is working!');
+});
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'index.html'));
