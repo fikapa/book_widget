@@ -1,4 +1,14 @@
-import { list } from "@vercel/blob";
+// dynamic loader for @vercel/blob to handle different export shapes in runtime
+let blobModule;
+async function getBlob() {
+  if (!blobModule) {
+    const mod = await import('@vercel/blob');
+    const list = mod.list ?? mod.default?.list;
+    const put = mod.put ?? mod.default?.put;
+    blobModule = { list, put };
+  }
+  return blobModule;
+}
 
 let fetchFn;
 async function getFetch() {
@@ -22,7 +32,9 @@ async function loadBooks() {
     throw new Error('BLOB_READ_WRITE_TOKEN not set');
   }
   try {
-    const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
+  const { list } = await getBlob();
+  if (typeof list !== 'function') throw new Error('blob.list is not available');
+  const { blobs } = await list({ token: process.env.BLOB_READ_WRITE_TOKEN });
     const blob = blobs.find(b => b.pathname === BLOB_FILE);
     if (!blob) return [];
     const fetch = await getFetch();
